@@ -1,0 +1,19 @@
+{
+  "name": "hukitori",
+  "version": "1.0.0",
+  "description": "1. みんなでコスるのを共有  2. こすった分表示される  3. 答える！",
+  "main": "server/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "angular2-twitter-bootstrap": "^0.1.4",
+    "bootstrap": "^3.3.7",
+    "express": "^4.14.0",
+    "pixi.js": "^4.0.0",
+    "socket.io": "^1.4.8"
+  }
+}

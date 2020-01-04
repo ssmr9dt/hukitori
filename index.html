@@ -1,0 +1,266 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Hukitori</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; overflow: hidden; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/pixi.js/pixi.min.js"></script>
+</head>
+  <body>
+    <script>
+    
+    var pixels = [];
+    var imagedata = null;
+
+    var renderer = PIXI.autoDetectRenderer(960, 540, {backgroundColor : 0xf0f0f0});
+    document.body.appendChild(renderer.view);
+    
+    var socket = io();
+	
+    socket.on("imagedata", function(e){
+      imagedata = e;
+    });
+    
+    
+
+function rect(x, y, color) {
+  var graphics = new PIXI.Graphics();
+  
+  graphics.position = {"x": x, "y": y};
+  graphics.alpha = 1;
+  graphics.remain_time = 0;
+  graphics.remain_max = 500;
+  
+  var width = ~~(renderer.width/imagedata.pixels[0].length)-1;
+  var height= ~~(renderer.height/imagedata.pixels.length)-1;
+  
+  graphics.beginFill(color, 1);
+  graphics.drawRect(x * width + x, y * height + y, width, height);
+  graphics.endFill();
+  
+  graphics.interactive = true;
+  // graphics.buttomode = true;
+
+  graphics.hitArea = new PIXI.Rectangle(x * width + x, y * height + y, width, height);
+
+  graphics.mouseover = function (e) {
+    this.alpha = 1;
+    this.remain_time = this.remain_max;
+    
+    socket.emit("pos", {"x": this.position.x, "y": this.position.y});
+  };
+  graphics.tail = function(){
+    this.alpha = 1;
+    this.remain_time = this.remain_max;
+  };
+  // graphics.mouseout = function(e){ };
+  
+  return graphics;
+}
+
+
+
+      (function _game(){
+        if (!!!imagedata) {
+          requestAnimationFrame(_game);
+          console.log("Loading...");
+          return;
+        }
+        
+        var stage = new PIXI.Container();
+
+        for (var x=0; x<imagedata.pixels[0].length; x++) {
+          pixels[x] = [];
+          for (var y=0; y<imagedata.pixels.length; y++) {
+            var rgb = imagedata.pixels[y][x];
+            var rc = rect(x, y, rgb);
+            pixels[x][y] = rc;
+            stage.addChild(rc);
+          }
+        }
+        
+        if (1) {
+          (function(){
+            var pos = { x: 0, y: 0};
+            pos.y = ~~(Math.random() * imagedata.pixels.length);
+            pos.x = ~~(Math.random() * imagedata.pixels[pos.y].length);
+            var limitx = imagedata.pixels.length;
+            var limity = imagedata.pixels[pos.y].length;
+
+            (function _debugloop(){
+              
+              requestAnimationFrame(_debugloop);
+              
+              switch (~~(Math.random()*8)) {
+                case 0:
+                  pos.y--; break;
+                case 1:
+                  pos.y--; pos.x++; break;
+                case 2:
+                  pos.x++; break;
+                case 3:
+                  pos.y++; pos.x++; break;
+                case 4:
+                  pos.y++; break;
+                case 5:
+                  pos.y++; pos.x--; break;
+                case 6:
+                  pos.x--; break;
+                case 7:
+                  pos.x--; pos.y--; break;
+                  
+                default:
+                  break;
+              }
+              
+              if (pos.x <= 0) {pos.x = limitx;}
+              if (pos.x >= limitx){pos.x =  0;}
+              
+              if (pos.y <= 0) { pos.y = limity; }
+              if (pos.y >= limity){ pos.y =  0;}
+  
+              var rc = pixels[pos.x][pos.y];
+              if (!!rc) {
+                rc.tail();
+              }
+  
+              socket.emit("pos", pos);
+            })();
+
+          })();
+        }
+
+        
+        
+        socket.on("pos", function(e){
+          var rc = pixels[e.x][e.y];
+          // console.log(e.x,e.y);
+          if (!!rc) {
+            rc.tail();
+          }
+        });
+        
+        (function animate() {
+            requestAnimationFrame(animate);
+
+            for (var y=0, my=imagedata.pixels.length; y < my; y++) {
+              for (var x=0, mx=imagedata.pixels[y].length; x < mx; x++) {
+                var r = pixels[x][y];
+                if (r.remain_time >= 0) { //leap....
+                  r.alpha = ((r.remain_time--)/r.remain_max);
+                }
+              }
+            }
+            renderer.render(stage);
+        })();
+      
+      })();
+    </script>
+    <script>
+      //Fullscreen
+      // http://qiita.com/foo9/items/d90a72e9c7a2f37fa9cc
+    </script>
+    <script>
+      // var container = new ParticleContainer();
+
+      // for (var i = 0; i < 100; ++i)
+      // {
+      //     var sprite = new PIXI.Sprite.fromImage("myImage.png");
+      //     container.addChild(sprite);
+      // }
+    </script>
+<!--<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script>
+      var px = 0, py = 0;
+      var widthx = 0;
+      var heighty = 0;
+      
+    	var imagedata = [];
+
+function AddTrail(x,y){
+  if (imagedata.length == 0) { return; }
+  
+	var d = document.createElement("div");
+
+	$(d).addClass("trail")
+		.css({
+			width: widthx,
+			height: heighty,
+			backgroundColor: "#" + color, 
+			left:x,
+			top:y
+		});
+
+	var anim = { opacity: 0 };
+
+	$("body").append(d);
+
+	setTimeout(function(){
+	  $(d).animate(anim, 20000, function(){ $(d).remove(); });
+	},200);
+}
+
+jQuery(function(){
+	var socket = io();
+	
+	socket.on("imagedata", function(e){
+	  imagedata = e;
+	  
+	  widthx = ($("html").width()/imagedata.pixels[0].length);
+	  heighty = ($("html").height()/imagedata.pixels.length);
+	});
+
+	socket.on("pos", function(e){
+	  console.log(e);
+		e.x = e.x * $("html").width();
+		e.y = e.y * $("html").height();
+		e.x = ~~(e.x/widthx)*widthx;
+		e.y = ~~(e.y/heighty)*heighty;
+		AddTrail(e.x,e.y,e.color,e.type);
+	});
+	
+	var timer = false;
+  $(window).resize(function() {
+      if (timer !== false) {
+          clearTimeout(timer);
+      }
+      timer = setTimeout(function() {
+        widthx = ($("html").width()/imagedata.pixels[0].length);
+        heighty = ($("html").height()/imagedata.pixels.length);
+      }, 200);
+  });
+
+	var func = function(e){
+		var x = e.pageX, y = e.pageY;
+		x = ~~(x/widthx)*widthx; y = ~~(y/heighty)*heighty;
+		if (x===px && y===py)return;
+//		if (Math.sqrt(Math.pow(x-px,2)+Math.pow(y-py,2)) < 60) {return;}
+		px = x; py = y;
+		//x = x-50; y = y-50;
+		var anim_type = ~~(Math.random()*6);
+		var colorpixelx = ~~(x/widthx);
+		var colorpixely = ~~(y/heighty);
+		var color = imagedata.pixels[colorpixelx][colorpixely];
+		if (!!!color) { return; }
+		var r = color[0].toString(16); if (r.length == 1) r = '0' + r;
+		var g = color[1].toString(16); if (g.length == 1) g = '0' + g;
+		var b = color[2].toString(16); if (b.length == 1) b = '0' + b;
+		color = r + g + b;
+		
+		console.log("x:"+(colorpixelx), "y="+(colorpixely), "color="+color );
+		AddTrail(x,y,color,anim_type);
+		socket.emit("pos", {
+			x: e.pageX/$("html").width(),
+			y: e.pageY/$("html").height()
+		});
+	};
+
+	$("html,body").click(func).mousemove(func);
+});
+    </script>-->
+  </body>
+</html>
