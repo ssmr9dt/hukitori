@@ -15,16 +15,13 @@
     (async function () {
       let pixels = [];
       let imagedata = null;
+      let gridReady = false;
 
       let app = new PIXI.Application();
       await app.init({ width: 960, height: 540, background: 0xf0f0f0 });
       document.body.appendChild(app.canvas);
 
       let socket = io();
-
-      socket.on("imagedata", function (e) {
-        imagedata = e;
-      });
 
       function rect(x, y, color) {
         let width = ~~(app.screen.width / imagedata.pixels[0].length) - 1;
@@ -42,6 +39,17 @@
         graphics.remain_max = 500;
         graphics.eventMode = 'static';
         graphics.hitArea = new PIXI.Rectangle(px, py, width, height);
+        graphics.cellW = width;
+        graphics.cellH = height;
+        graphics.drawPx = px;
+        graphics.drawPy = py;
+        graphics.baseColor = color;
+
+        graphics.setBaseColor = function (c) {
+          this.baseColor = c;
+          this.clear();
+          this.rect(this.drawPx, this.drawPy, this.cellW, this.cellH).fill(c);
+        };
 
         graphics.on('pointerover', function () {
           this.alpha = 1;
@@ -57,13 +65,20 @@
         return graphics;
       }
 
-      (function _game() {
-        if (!imagedata) {
-          requestAnimationFrame(_game);
-          console.log("Loading...");
-          return;
+      function applyImageData(e) {
+        if (!gridReady) return;
+        for (let y = 0; y < e.pixels.length; y++) {
+          for (let x = 0; x < e.pixels[y].length; x++) {
+            let rgb = e.pixels[y][x];
+            if (imagedata && imagedata.pixels[y][x] === rgb) continue;
+            let rc = pixels[x] && pixels[x][y];
+            if (rc) rc.setBaseColor(rgb);
+          }
         }
+        imagedata = e;
+      }
 
+      function buildGrid() {
         for (let x = 0; x < imagedata.pixels[0].length; x++) {
           pixels[x] = [];
           for (let y = 0; y < imagedata.pixels.length; y++) {
@@ -73,6 +88,28 @@
             app.stage.addChild(rc);
           }
         }
+        gridReady = true;
+      }
+
+      socket.on("imagedata", function (e) {
+        if (!gridReady) {
+          imagedata = e;
+          return;
+        }
+        applyImageData(e);
+      });
+
+      (function _game() {
+        if (!imagedata) {
+          requestAnimationFrame(_game);
+          return;
+        }
+        if (gridReady) {
+          requestAnimationFrame(_game);
+          return;
+        }
+
+        buildGrid();
 
         if (1) {
           (function () {
@@ -112,7 +149,7 @@
         }
 
         socket.on("pos", function (e) {
-          let rc = pixels[e.x][e.y];
+          let rc = pixels[e.x] && pixels[e.x][e.y];
           if (rc) {
             rc.tail();
           }
@@ -131,6 +168,8 @@
           }
           app.render();
         })();
+
+        requestAnimationFrame(_game);
       })();
     })();
     </script>
