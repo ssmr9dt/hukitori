@@ -1,9 +1,9 @@
-var app = require('express')();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-// var request = require("request");
+let app = require('express')();
+let http = require('http').createServer(app);
+let io = new (require('socket.io').Server)(http);
+// let request = require("request");
 
-var path = require("path");
+let path = require("path");
 
 app.get('/', function(req, res){
   res.sendFile(path.resolve(__dirname + "/../index.html"));
@@ -14,10 +14,12 @@ app.get('/', function(req, res){
 // });
 
 app.get("/pixi.js/pixi.min.js", function(req, res){
-  res.sendFile(path.resolve(__dirname + "/../node_modules/pixi.js/bin/pixi.min.js"));
+  res.sendFile(path.resolve(__dirname + "/../node_modules/pixi.js/dist/pixi.min.js"));
 });
 
 io.on('connection', function(socket){
+  socket.on('error', function() {});
+
   console.log('a user connected');
   
   // request("http://localhost/", function (error, response, body) {
