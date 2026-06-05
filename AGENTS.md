@@ -2,14 +2,33 @@
 
 このリポジトリで作業する AI エージェント（Cursor Cloud Agent など）向けのガイドです。
 
+## ゴール
+
+**こすったら見えるデジタルクロック** をつくる。
+
+- 画面上には最初、**現在時刻**（デジタル表示）が隠れている
+- ユーザーがマスをこすると、その部分の時刻が **見えていく**
+- 複数人で同時にこすると、**こすった軌跡が共有**される（リアルタイム）
+- 時刻は **1 秒ごと**に更新され、見えている部分も新しい時刻に追従する
+
 ## プロジェクト概要
 
-**hukitori** は、複数ユーザーが同時に「こする」操作を共有し、隠れた画像が徐々に見えていくリアルタイム Web 体験です。
+**hukitori** は、上記ゴールを実現するためのリアルタイム Web アプリです。
 
-1. みんなでコスるのを共有
-2. こすった分が表示される
+1. みんなでコスるのを共有する
+2. こすった分だけ時計の表示が見える
 
-（「答える」フロー・正解入力 UI は **廃止**。4 桁当てゲームとしての説明は使わない。）
+旧来の「4 桁を当てる」「答える」フローは **対象外**（実装・ドキュメントに戻さない）。
+
+## 現状とギャップ（目安）
+
+| 領域 | 状態 |
+|------|------|
+| こすり・ハイライト・`pos` 同期 | 一部実装済み（周辺 9 マスハイライト、蛇行デバッグこすりなど） |
+| 時刻のピクセル描画・1 秒更新 | `cursor/time-display-hhmmss-2d33`（PR #2）で実装済み。**master 未マージ** |
+| マージ後のゴール到達 | master に時刻表示 PR を取り込み、こすり＋時刻更新の結合を確認 |
+
+詳細タスクは [TODO.md](./TODO.md) を参照。
 
 ## 技術スタック
 
@@ -17,23 +36,19 @@
 |------|------|
 | サーバー | Node.js, Express 5, Socket.IO 4 |
 | クライアント | 素の HTML + PIXI.js 8（ビルドツールなし） |
-| 画像生成 | `server/generate-image.js`（旧 PHP `index.php` 相当、外部画像ライブラリなし） |
-| フォントデータ | `server/gdfont-large.js`（`scripts/extract-gdfont.js` で生成可能） |
+| クロック画像 | `server/generate-image.js`（`HH:MM:SS` 形式、秒更新） |
+| フォント | `server/gdfont-large.js`（0–9 と `:`） |
 
 ## ディレクトリ構成
 
 ```
 /
-├── index.html          # メインゲーム UI（PIXI + Socket.IO）
-├── design.html         # Bootstrap カバーページ（レガシー／未接続）
-├── _index.html         # 旧版 HTML（参照用）
+├── index.html          # メイン UI（PIXI + Socket.IO）
 ├── server/
-│   ├── index.js        # HTTP + WebSocket サーバー
+│   ├── index.js        # HTTP + WebSocket、imagedata 配信
 │   ├── generate-image.js
 │   ├── gdfont-large.js
-│   └── image.json      # 生成画像のピクセル／テキストキャッシュ
-├── scripts/
-│   └── extract-gdfont.js
+│   └── image.json
 └── README.md
 ```
 
@@ -42,51 +57,41 @@
 ```bash
 npm install
 npm start
-# または
-node server/index.js
 ```
 
-- デフォルトポート: `process.env.PORT` 未設定時は **3001**（`server/index.js`）
-- ルート `/` → `index.html`
-- `/image.png` → キャプチャ用 PNG
-- Socket.IO イベント: `imagedata`, `pos`, `hi`
+- デフォルトポート: **3001**（`process.env.PORT` で変更可）
+- Socket.IO: `imagedata`（時刻ピクセル）、`pos`（こすり位置）
 
 ## 作業時の原則
 
-1. **スコープを最小に** — 依頼と無関係なリファクタや依存追加は避ける。
-2. **既存スタイルに合わせる** — CommonJS、`let`/`const` 混在、インライン `<script>` など現状の書き方を維持する。
-3. **クライアントはバンドルなし** — `index.html` 内スクリプトと `node_modules` 直配信のみ。Webpack 等は導入しない（明示依頼時を除く）。
-4. **画像生成はサーバー側** — ピクセル配列・表示テキストは `generate-image.js` を単一の正とする。
-5. **テスト** — `npm test` は未整備。テスト追加は依頼がある場合のみ、意味のある挙動をカバーする。
-6. **コメント** — 非自明なビジネスロジック（シード、PHP 互換の色値など）に限定する。
+1. **ゴール優先** — 変更が「こすって見えるクロック」に寄与するか確認する。
+2. **スコープを最小に** — 依頼と無関係なリファクタや依存追加は避ける。
+3. **既存スタイルに合わせる** — CommonJS、インライン `<script>`、バンドルなし。
+4. **時刻の正** — 表示文字列・ピクセルは `generate-image.js`、配信はサーバー。
+5. **こすり状態** — 秒更新でハイライトが消えないよう、差分更新を維持する。
 
 ## よく触るファイル
 
 | 変更内容 | 主なファイル |
 |----------|----------------|
-| 同期・ブロードキャスト | `server/index.js` |
-| 問題画像・シード・PNG | `server/generate-image.js`, `server/image.json` |
-| 描画・入力・フェード | `index.html` |
-| フォントグリフ | `server/gdfont-large.js`, `scripts/extract-gdfont.js` |
+| 時刻生成・PNG | `server/generate-image.js` |
+| 1 秒ごとの配信 | `server/index.js` |
+| こすり・表示・フェード | `index.html` |
+| 字形 | `server/gdfont-large.js` |
 
 ## 既知の注意点
 
-- `index.html` の `debugAutoScratch`（`DEBUG_AUTO_SCRATCH_DEFAULT` / `?debug=0`）はデバッグ用の自動こすり（蛇行スキャン）。本番挙動変更時は意図を確認すること。
-- `server/index.js` の listen ログメッセージと実際のポート表記が一致していない可能性がある（修正時は README も合わせる）。
-- `design.html` / `_index.html` / `angular2-twitter-bootstrap` は現行ゲーム経路から外れている可能性が高い。削除・統合は Issue／TODO と相談してから。
+- `debugAutoScratch`（`?debug=0`）は開発用の自動こすり（蛇行スキャン）。本番ではオフ想定。
+- タイムゾーンはサーバー `Date` のローカル時刻（JST 固定は `TZ` 等で運用側が指定）。
+- `design.html` / `_index.html` はレガシー。削除は TODO と相談。
 
 ## Git・PR
 
 - ベースブランチ: `master`
-- 機能ブランチ: `cursor/<説明的な名前>-2d33` 形式
-- コミット後: `git push -u origin <branch>` → PR 作成（ドラフト可）
-- 作業者名の参照: **Murakami**（ユーザー指定）
-
-## タスク管理
-
-進行中・未着手の作業はルートの [TODO.md](./TODO.md) に記載する。エージェントは着手前に TODO を確認し、完了した項目は PR 説明またはコミットとあわせて TODO を更新する。
+- 機能ブランチ: `cursor/<説明的な名前>-2d33`
+- 作業者名: **Murakami**
 
 ## 参考
 
-- [README.md](./README.md) — 起動手順
-- WebSocket 入門（README 記載）: https://www.html5rocks.com/ja/tutorials/websockets/basics/
+- [TODO.md](./TODO.md)
+- [README.md](./README.md)
