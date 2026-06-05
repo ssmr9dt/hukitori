@@ -26,6 +26,23 @@
         imagedata = e;
       });
 
+      function highlightPos(x, y) {
+        const w = imagedata.pixels[0].length;
+        const h = imagedata.pixels.length;
+        const cells = [
+          [0, 0, 1],
+          [0, -1, 1], [0, 1, 1], [-1, 0, 1], [1, 0, 1],
+          [-1, -1, 0.5], [-1, 1, 0.5], [1, -1, 0.5], [1, 1, 0.5],
+        ];
+        for (let i = 0; i < cells.length; i++) {
+          const nx = x + cells[i][0];
+          const ny = y + cells[i][1];
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          const rc = pixels[nx] && pixels[nx][ny];
+          if (rc) rc.tail(cells[i][2]);
+        }
+      }
+
       function rect(x, y, color) {
         let width = ~~(app.screen.width / imagedata.pixels[0].length) - 1;
         let height = ~~(app.screen.height / imagedata.pixels.length) - 1;
@@ -40,17 +57,21 @@
         graphics.alpha = 1;
         graphics.remain_time = 0;
         graphics.remain_max = 500;
+        graphics.highlight_strength = 0;
         graphics.eventMode = 'static';
         graphics.hitArea = new PIXI.Rectangle(px, py, width, height);
 
         graphics.on('pointerover', function () {
-          this.alpha = 1;
-          this.remain_time = this.remain_max;
+          highlightPos(this.position.x, this.position.y);
           socket.emit("pos", { x: this.position.x, y: this.position.y });
         });
 
-        graphics.tail = function () {
-          this.alpha = 1;
+        graphics.tail = function (strength) {
+          strength = strength == null ? 1 : strength;
+          const current = this.highlight_strength || 0;
+          if (strength < current && this.remain_time > 0) return;
+          this.highlight_strength = Math.max(current, strength);
+          this.alpha = this.highlight_strength;
           this.remain_time = this.remain_max;
         };
 
@@ -101,21 +122,14 @@
               if (pos.y <= 0) { pos.y = limity; }
               if (pos.y >= limity) { pos.y = 0; }
 
-              let rc = pixels[pos.x][pos.y];
-              if (rc) {
-                rc.tail();
-              }
-
+              highlightPos(pos.x, pos.y);
               socket.emit("pos", pos);
             })();
           })();
         }
 
         socket.on("pos", function (e) {
-          let rc = pixels[e.x][e.y];
-          if (rc) {
-            rc.tail();
-          }
+          highlightPos(e.x, e.y);
         });
 
         (function animate() {
@@ -125,7 +139,9 @@
             for (let x = 0, mx = imagedata.pixels[y].length; x < mx; x++) {
               let r = pixels[x][y];
               if (r.remain_time >= 0) {
-                r.alpha = (r.remain_time-- / r.remain_max);
+                r.alpha = (r.remain_time-- / r.remain_max) * (r.highlight_strength || 1);
+              } else {
+                r.highlight_strength = 0;
               }
             }
           }
