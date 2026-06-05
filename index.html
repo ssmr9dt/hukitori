@@ -66,13 +66,18 @@
         }
       }
 
+      function scratchAt(x, y) {
+        highlightPos(x, y);
+        socket.emit("pos", { x, y });
+      }
+
       function pointerToCell(e) {
         const p = e.global;
         for (let x = 0; x < pixels.length; x++) {
           if (!pixels[x]) continue;
           for (let y = 0; y < pixels[x].length; y++) {
             const rc = pixels[x][y];
-            if (rc && rc.hitArea && rc.hitArea.contains(p.x - rc.drawPx, p.y - rc.drawPy)) {
+            if (rc && rc.containsPoint(p)) {
               return { x, y };
             }
           }
@@ -83,15 +88,14 @@
       function onPointerScratch(e) {
         const cell = pointerToCell(e);
         if (!cell) return;
-        highlightPos(cell.x, cell.y);
-        socket.emit("pos", { x: cell.x, y: cell.y });
+        scratchAt(cell.x, cell.y);
       }
 
       app.stage.eventMode = 'static';
       app.stage.hitArea = app.screen;
-      app.stage.on('pointerdown', onPointerScratch);
-      app.stage.on('pointermove', function (e) {
-        if (e.buttons !== 0) onPointerScratch(e);
+      app.stage.on('globalpointermove', function (e) {
+        if (e.buttons === 0) return;
+        onPointerScratch(e);
       });
 
       function rect(x, y, clockColor) {
@@ -111,7 +115,10 @@
         graphics.cellH = height;
         graphics.drawPx = px;
         graphics.drawPy = py;
-        graphics.eventMode = 'none';
+        graphics.gridX = x;
+        graphics.gridY = y;
+        graphics.eventMode = 'static';
+        graphics.hitArea = new PIXI.Rectangle(px, py, width, height);
 
         graphics.repaint = function () {
           const fill = this.scratched ? this.clockColor : COLOR_GRAY;
@@ -136,6 +143,13 @@
           this.highlight_strength = Math.max(current, strength);
           this.remain_time = this.remain_max;
         };
+
+        graphics.on('pointerover', function () {
+          scratchAt(this.gridX, this.gridY);
+        });
+        graphics.on('pointerdown', function () {
+          scratchAt(this.gridX, this.gridY);
+        });
 
         return graphics;
       }
