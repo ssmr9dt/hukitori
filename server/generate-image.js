@@ -6,7 +6,7 @@ const path = require('path');
 const zlib = require('zlib');
 const GD_FONT_LARGE = require('./gdfont-large');
 
-const IMG_WIDTH = 48;
+const IMG_WIDTH = 64;
 const IMG_HEIGHT = 27;
 const FONT_WIDTH = 8;
 const FONT_HEIGHT = 16;
@@ -14,21 +14,15 @@ const COLOR_BLACK = 0;
 const COLOR_RED = 16711680; // 0xFF0000, PHP imagecolorat 相当
 const IMAGE_JSON_PATH = path.join(__dirname, 'image.json');
 
-function hourSeed() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  return parseInt(`${y}${m}${day}${h}`, 10);
+function formatClockText(date = new Date()) {
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s}`;
 }
 
-function rand1000to9999(seed) {
-  let s = seed >>> 0;
-  s = Math.imul(s ^ (s >>> 16), 2246822507);
-  s = Math.imul(s ^ (s >>> 13), 3266489909);
-  s ^= s >>> 16;
-  return 1000 + (s >>> 0) % 9000;
+function secondKey(date = new Date()) {
+  return Math.floor(date.getTime() / 1000);
 }
 
 function createPixelBuffer() {
@@ -116,13 +110,13 @@ function encodePng(pixels) {
   ]);
 }
 
-function generateImageData() {
-  const text = String(rand1000to9999(hourSeed()));
+function generateImageData(date = new Date()) {
+  const text = formatClockText(date);
   const pixels = createPixelBuffer();
   drawText(pixels, text);
 
   return {
-    text: parseInt(text, 10),
+    text,
     pixels,
     png: encodePng(pixels),
   };
@@ -135,15 +129,15 @@ function writeImageJson(data, filePath = IMAGE_JSON_PATH) {
 }
 
 let cache = null;
-let cacheSeed = null;
+let cacheKey = null;
 
-function getImageData() {
-  const seed = hourSeed();
-  if (cache && cacheSeed === seed) {
+function getImageData(date = new Date()) {
+  const key = secondKey(date);
+  if (cache && cacheKey === key) {
     return cache;
   }
-  cache = generateImageData();
-  cacheSeed = seed;
+  cache = generateImageData(date);
+  cacheKey = key;
   writeImageJson(cache);
   return cache;
 }
@@ -153,5 +147,8 @@ module.exports = {
   getImageData,
   writeImageJson,
   IMAGE_JSON_PATH,
-  hourSeed,
+  formatClockText,
+  secondKey,
+  IMG_WIDTH,
+  IMG_HEIGHT,
 };

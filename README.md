@@ -12,7 +12,7 @@ npm start
 node server/index.js
 ```
 
-キャプチャ画像（4桁数字）の生成は `server/generate-image.js` が担当します（旧 `php/index.php` 相当）。
+キャプチャ画像（時刻表示）の生成は `server/generate-image.js` が担当します（旧 `php/index.php` 相当）。キャンバス幅は 8 文字（`14:30:52`）用に 64px です。
 
 ## Reference
 
