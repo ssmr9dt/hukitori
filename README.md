@@ -2,7 +2,6 @@
 
  1. みんなでコスるのを共有
  2. こすった分表示される
- 3. 答える！
 
 ## 起動
 
@@ -12,7 +11,7 @@ npm start
 node server/index.js
 ```
 
-キャプチャ画像の生成は `server/generate-image.js` が担当します（旧 `php/index.php` 相当）。
+キャプチャ画像（4桁数字）の生成は `server/generate-image.js` が担当します（旧 `php/index.php` 相当）。
 
 ## Reference
 
