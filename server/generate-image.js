@@ -14,11 +14,18 @@ const COLOR_BLACK = 0;
 const COLOR_RED = 16711680; // 0xFF0000, PHP imagecolorat 相当
 const IMAGE_JSON_PATH = path.join(__dirname, 'image.json');
 
+const JST_TIMEZONE = 'Asia/Tokyo';
+
 function formatClockText(date = new Date()) {
-  const h = String(date.getHours()).padStart(2, '0');
-  const m = String(date.getMinutes()).padStart(2, '0');
-  const s = String(date.getSeconds()).padStart(2, '0');
-  return `${h}:${m}:${s}`;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: JST_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const pick = (type) => parts.find((p) => p.type === type).value;
+  return `${pick('hour')}:${pick('minute')}:${pick('second')}`;
 }
 
 function secondKey(date = new Date()) {
@@ -151,4 +158,5 @@ module.exports = {
   secondKey,
   IMG_WIDTH,
   IMG_HEIGHT,
+  JST_TIMEZONE,
 };
